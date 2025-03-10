@@ -1,0 +1,42 @@
+version: '3'
+
+services:
+  myas:
+    image: myas-image
+    container_name: myas
+    ports:
+      - "53533:53533/udp"
+    networks:
+      - mynetwork
+
+  myfs:
+    image: myfs-image
+    container_name: myfs
+    ports:
+      - "9090:9090"
+    environment:
+      - AS_IP=myas
+      - AS_PORT=53533
+    networks:
+      - mynetwork
+    depends_on:
+      - myas
+
+  myus:
+    image: myus-image
+    container_name: myus
+    ports:
+      - "8080:8080"
+    environment:
+      - FS_IP=myfs
+      - FS_PORT=9090
+      - AS_IP=myas
+      - AS_PORT=53533
+    networks:
+      - mynetwork
+    depends_on:
+      - myfs
+
+networks:
+  mynetwork:
+    driver: bridge

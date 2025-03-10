@@ -1,0 +1,131 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dns-app
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: myas
+  namespace: dns-app
+spec:
+  type: NodePort
+  ports:
+  - port: 53533
+    targetPort: 53533
+    nodePort: 30001
+  selector:
+    app: myas
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myas
+  namespace: dns-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: myas
+  template:
+    metadata:
+      labels:
+        app: myas
+    spec:
+      containers:
+      - name: myas
+        image: myas-image
+        ports:
+        - containerPort: 53533
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: myfs
+  namespace: dns-app
+spec:
+  type: NodePort
+  ports:
+  - port: 9090
+    targetPort: 9090
+    nodePort: 30002
+  selector:
+    app: myfs
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myfs
+  namespace: dns-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: myfs
+  template:
+    metadata:
+      labels:
+        app: myfs
+    spec:
+      containers:
+      - name: myfs
+        image: myfs-image
+        ports:
+        - containerPort: 9090
+        env:
+        - name: AS_IP
+          value: myas.dns-app.svc.cluster.local
+        - name: AS_PORT
+          value: "53533"
+        command: ["sh", "-c"]
+        args:
+        - >
+          sleep 10 &&
+          curl -X PUT "http://myas:53533/register" \
+          -H "Content-Type: application/json" \
+          -d '{"hostname": "myfs", "ip": "myfs", "as_ip": "myas", "as_port": 53533}' &&
+          python3 app.py
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: myus
+  namespace: dns-app
+spec:
+  type: NodePort
+  ports:
+  - port: 8080
+    targetPort: 8080
+    nodePort: 30003
+  selector:
+    app: myus
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myus
+  namespace: dns-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: myus
+  template:
+    metadata:
+      labels:
+        app: myus
+    spec:
+      containers:
+      - name: myus
+        image: myus-image
+        ports:
+        - containerPort: 8080
+        env:
+        - name: FS_IP
+          value: myfs.dns-app.svc.cluster.local
+        - name: FS_PORT
+          value: "9090"
+        - name: AS_IP
+          value: myas.dns-app.svc.cluster.local
+        - name: AS_PORT
+          value: "53533"
